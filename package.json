@@ -4,6 +4,15 @@
   "version": "0.1.0",
   "type": "module",
   "description": "广交会推广助手 - Canton Fair Outreach Assistant（Chrome 扩展，Manifest V3）",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/covinlee5-del/canton-fair-assistant.git"
+  },
+  "homepage": "https://github.com/covinlee5-del/canton-fair-assistant#readme",
+  "bugs": {
+    "url": "https://github.com/covinlee5-del/canton-fair-assistant/issues"
+  },
+  "license": "UNLICENSED",
   "scripts": {
     "build": "vite build && vite build -c vite.content.config.ts",
     "build:content": "vite build -c vite.content.config.ts",

@@ -7,6 +7,9 @@
 > **产品红线（本仓库所有代码均遵守）**
 > 不自动发布评论、不自动点赞/关注/私信；不绕过登录或验证码；不调用未经验证的平台内部接口；不上传账号凭证；无默认第三方上传。
 
+> **远程仓库（公开）**：<https://github.com/covinlee5-del/canton-fair-assistant>
+> 公开仓库，ChatGPT / Grok 等外部工具可直接读取代码与文档；协作约定见 §12。
+
 ---
 
 ## 1. 当前状态
@@ -179,3 +182,25 @@ canton-fair-assistant/
 ## 11. 变更记录
 
 - **0.1.0（阶段 2）**：MV3 骨架（侧边栏 + 管理页）、IndexedDB 仓储层、任务 CRUD、只读诊断探针、错误码体系、87 项逻辑验证（含消息层端到端）、验证记录模板。
+
+## 12. 远程仓库与协作约定
+
+仓库：<https://github.com/covinlee5-del/canton-fair-assistant>（public，默认分支 `main`）
+
+为了让 ChatGPT、Grok 等外部工具与本地开发互不踩坑，约定如下：
+
+1. **单一事实来源是 `main` 分支**。任何工具改动前先读 `README.md` → `docs/02-技术架构.md` → `docs/03-数据模型.md`，不要凭猜测改类型或消息契约。
+2. **每次改动一个主题**，提交信息用 `feat:` / `fix:` / `docs:` / `test:` / `chore:` 前缀（示例：`feat: 笔记提取器支持卡片标题`）。
+3. **不提交产物与依赖**：`node_modules/`、`dist/`、`.npm-cache/`、`.local-verify/out|probe-out/` 已在 `.gitignore` 中排除。
+4. **不把密钥、账号凭证、真实用户数据写入仓库**；插件数据只存在浏览器本地。
+5. **守住产品红线**（见文首）：外部工具新增功能时，不得引入自动评论/自动点赞/私信或绕过风控的实现。
+6. 若某工具只能网页操作：可直接在 GitHub 网页上编辑文件并以 Pull Request 提交，本地再 `git pull` 合并，避免与本地未提交改动冲突。
+
+本地克隆与校验：
+
+```bash
+git clone https://github.com/covinlee5-del/canton-fair-assistant.git
+cd canton-fair-assistant
+npm install && npm run typecheck && npm test && npm run build
+```
+
