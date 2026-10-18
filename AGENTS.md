@@ -78,3 +78,50 @@ npm run build         # 必须产出 dist/
 | `docs/07-AI协作操作指南.md` | 非技术用户的操作步骤（人读） |
 | `docs/08-阶段2验收操作手册.md` | 阶段 2 验收：跑命令 → 装 Chrome → 自测 11 项 → 探针 11 步（人读） |
 | `docs/09-阶段3任务清单.md` | 阶段 3 任务分解 T3.0–T3.10、验收标准、风险与节奏 |
+
+## 8. 多工具协作协议（本机同时装有 Codex / DeepSeek / ZCode）
+
+本机有多个**能修改本地文件**的 AI 工具，且它们共用同一个工作目录
+`D:\RDplug-in\canton-fair-assistant`。因此必须遵守本协议。
+
+### 8.1 先理解一件事：Git 分支不能隔离文件
+
+`git checkout` 会**重写磁盘上的文件**。两个工具在同一个目录里各自切分支，会互相踩踏：
+A 切到 `feat/a` 的瞬间，B 未提交的改动就被覆盖。
+**所以结论是：同一个工作目录，同一时间只允许一个工具写。**
+
+### 8.2 强制流程
+
+1. **开工前**：`git status` 必须干净；有别人的未提交改动就停下来问人类
+2. **先同步**：`git pull --rebase origin main`
+3. **建自己的分支**：`git checkout -b feat/<工具名>-<主题>`
+   （工具名取 `codex` / `deepseek` / `zcode`，例：`feat/codex-note-extractor`）
+4. **干活**
+5. **收工**：`git add <明确的路径>` → commit → **不要 push main**
+6. **交接**：把分支名告诉人类，由人类或 DeepSeek 合并
+
+### 8.3 禁止事项（每一条都出过事故）
+
+- ❌ `git add -A` / `git commit -a` —— 会把别的工具的半成品一起提交（本仓库已因此误提交过一次构建产物）
+- ❌ `git push origin main` —— main 只接受合并
+- ❌ `git push --force` / 改写别人分支
+- ❌ 在别人有未提交改动时切换分支或执行 `git reset`
+- ❌ 两个工具同时改同一批文件
+
+### 8.4 确实需要并行：用独立工作树（worktree）
+
+共用目录没法并行，但可以给每个工具一个独立目录：
+
+```bash
+git worktree add ../wt-codex feat/codex-xxx
+git worktree add ../wt-zcode feat/zcode-xxx
+```
+
+每个工具只在自己的目录里工作，文件互不可见，最后由主目录统一合并。
+（需要时让 DeepSeek 来创建。）
+
+### 8.5 有分歧时以什么为准
+
+- **代码是否正确**：以 `npm run typecheck && npm test && npm run build` 的**真实输出**为准，不看谁先说的、谁说得好听
+- **计划/文档**：以 `docs/` 下最新一次提交为准
+- **产品红线**：以本文件 §2 为准，**任何工具的意见都不能覆盖它**，包括"这样体验更好"之类的理由
