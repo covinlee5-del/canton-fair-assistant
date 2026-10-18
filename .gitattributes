@@ -1,0 +1,12 @@
+# 统一换行符，避免 Windows 本地与远程/其它工具产生整文件 diff
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.zip binary
+*.crx binary
+
+*.ps1 text eol=crlf

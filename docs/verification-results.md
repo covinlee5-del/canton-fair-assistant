@@ -1,0 +1,147 @@
+# 验证记录（Verification Results）
+
+> 用途：区分「已执行的验证」与「待验证的能力」。**没有记录在案的，就不算验证通过。**
+> 填写原则：只写实际观测到的结果；失败也照实记录；不要用"应该没问题"代替证据。
+
+---
+
+## 1. 环境信息
+
+| 项目 | 值 |
+|---|---|
+| 记录日期 | 2026-10-18（代理环境执行部分） |
+| 扩展版本 | 0.1.0 |
+| Chrome 版本 | 待你填写（`chrome://version`） |
+| Node / npm | v24.19.0 / 11.17.0 |
+| selectors 版本 | `probe-0.1.0`（见 `src/content/adapters/selectors.ts`） |
+
+---
+
+## 2. 代理环境（编写代码的环境）已执行的结果
+
+| 检查项 | 命令 | 结果 | 备注 |
+|---|---|---|---|
+| 依赖安装 | `npm install` | ⚠️ 仅能部分验证 | 用户目录下的 npm 缓存被沙箱拒绝（EPERM），改用工作区内缓存 `--cache .npm-cache` 后下载成功；随后因沙箱禁止子进程，安装脚本无法执行，改用 `--ignore-scripts` 完成安装。**你在本机直接 `npm install` 即可，不需要这些参数。** |
+| 类型检查 | `node node_modules/typescript/bin/tsc --noEmit` | ✅ 通过（0 错误） | 覆盖 `src/` + `tests/` + 三个配置文件，strict + `noUncheckedIndexedAccess` |
+| 核心逻辑执行验证 | `node .local-verify/out/.local-verify/verify.js` | ✅ 87/87 项通过 | 见 §3；做法见 §4 |
+| `npm run build` | `vite build` | ⛔ 无法执行 | 沙箱禁止子进程：`Error: spawn EPERM`（esbuild 启动失败），发生在加载配置阶段，**与项目代码无关** |
+| `npm test`（vitest） | `vitest run` | ⛔ 无法执行 | 同上：esbuild 无法启动 |
+| Chrome 加载 / 侧边栏 / 管理页 | — | ⏳ 待执行 | 需要真实浏览器，由你完成 |
+| 真实小红书页面探针 | — | ⏳ 待执行 | 见 §5 协议记录 |
+
+---
+
+## 3. 核心逻辑执行验证明细（87 项）
+
+验证方式：用 `tsc` 把 `src/` 子集编译为 CommonJS，再由 Node 直接 `require` 真实模块执行断言（不使用模拟实现；IndexedDB 用 `fake-indexeddb`、`chrome.storage.local` 与 `chrome.runtime`/`tabs`/`scripting` 用最小替身、DOM 用 jsdom）。
+
+| 分组 | 覆盖内容 | 结果 |
+|---|---|---|
+| 链接规范化（8 项） | `/explore/`、`/discovery/item/` 归一化；丢弃全部查询参数；非小红书域名与相似域名（`xiaohongshu.com.evil.example`）不误判；缺 ID / 非法 URL 返回 null；笔记 ID 提取；诊断 URL 只保留 host+pathname | ✅ |
+| 工具函数（9 项） | 文本折叠空白与 null 安全、截断长度、大小写不敏感去重；`AppError` 错误码与用户文案；`toAppError` 透传/包装；时间格式化空值占位 | ✅ |
+| 任务服务（12 项） | 空名称/空关键词被拒；关键词去重与规范化；创建默认 `ACTIVE` 且补齐默认相关性规则；更新保留 id；复制生成新 id 与「（副本）」；非法状态被拒；归档过滤；删除 | ✅ |
+| 设置仓库（5 项） | 首次读取返回默认值；更新后持久化；嵌套字段深合并不丢默认值；`chrome.storage.local` 抛错时映射为 `STORAGE_ERROR`（不抛异常、不显示成功） | ✅ |
+| IndexedDB 仓储（10 项） | 任务创建/读回/更新/删除；重复 id 创建返回 `STORAGE_ERROR`（`add` 语义）；更新不产生重复记录；笔记/文案/活动记录写入；`resetDbForTests` 后数据清空 | ✅ |
+| 诊断与分类（10 项） | 不支持页面 → `UNSUPPORTED_PAGE`；未加载完成 → `PAGE_NOT_READY`；无候选 → `NO_VISIBLE_NOTES`；正常页面无错误且 `extracted=0`（阶段 2 不提取）；诊断 URL 不含查询参数；页面类型分类（搜索/详情/主页/其他） | ✅ |
+| DOM 探针（13 项，jsdom） | 统计笔记卡片数、笔记链接数、结果容器数、SPA 挂载点、readyState（等待 load 后）；适配器 `isSupportedPage` / `getPageType` / `extractVisibleNotes` 返回空 / 诊断携带 `selectorVersion` 与候选数；非小红书页面的支持判定与类型 | ✅ |
+| **消息层端到端（20 项）** | 用替身 `chrome.runtime.onMessage` 触发真实 SW 处理器：`task.create/list/update/set-status/duplicate/delete`、`settings.set-default-task`、`get-dashboard`（当前任务切换生效）、`read-page`（注入文件名 `content.js` + `func` 二次注入读回、诊断写入 `chrome.storage.local` 并可经 dashboard 回读）、非法输入 → `INVALID_INPUT`、非小红书页 → `UNSUPPORTED_PAGE`、无 url（未授权）→ `PERMISSION_DENIED`、无标签页 → 失败而非静默成功、未知消息名 → 返回 `false` 不占用通道、**且响应必须是单层信封**（不是 Result 套 Result） | ✅ |
+
+### 本轮验证发现并已修复的缺陷（说明为什么必须有执行验证）
+
+| # | 缺陷 | 影响 | 修复 |
+|---|---|---|---|
+| 1 | UI 发送 `{ input: TaskInput }`，而 `task.create` 处理器把整个 payload 当成 `TaskInput` 解析 | 新建任务**必然失败**（名称被读成 undefined → `INVALID_INPUT`），类型检查完全发现不了 | 处理器改为解构 `payload.input`；已加入消息层断言 |
+| 2 | 命令处理器返回 `Result<T>`，消息路由器又包了一层信封 | 所有 UI 调用拿到「Result 套 Result」，`data.tasks` 变成不可用对象，页面白屏/数据错乱 | 新增 `unwrap()`：服务层仍返回 `Result`，命令层拆包后返回纯值或抛 `AppError`，路由器只包一层；已加入端到端断言 |
+| 3 | 内容脚本被打包为 IIFE（`var X = (function(){...})()`），脚本完成值为空 | `executeScript({files})` 返回的 `result` 是 `undefined` → 「读取诊断」在真实浏览器里必然报「内容脚本未返回结果」 | 改为两段式注入：content.js 把诊断写到 isolated world 的全局键，background 再注入自包含 `func` 读回；已加入断言 |
+
+这两处都是**跨层契约错误**，`tsc` 无法捕获（`payload as TaskInput` 是类型断言），只有真实跑一遍消息链路才会暴露 —— 这也是本阶段必须做端到端验证的原因。
+
+### 红线核查（源码级）
+
+| 检查 | 结论 |
+|---|---|
+| 是否存在自动发布评论 / 点赞 / 关注 / 私信代码 | 无（全仓库无点击、无表单提交、无平台接口调用） |
+| 是否调用小红书内部接口 | 无（无 `fetch`/`XHR` 到任何域名；`grep` 可核对） |
+| 是否读取 Cookie / 凭证 | 无（只用 `document.querySelectorAll` 统计结构信号） |
+| 是否上传数据 | 无（无网络请求代码；数据只进 IndexedDB 与 `chrome.storage.local`） |
+| 是否绕过登录 / 验证码 | 无（登录墙与验证码只做"检测 + 提示用户自行处理"） |
+| 是否伪造数据 | 无（`extractVisibleNotes()` 在阶段 2 明确返回空数组） |
+
+---
+
+## 4. 关于 `.local-verify/`（为什么仓库里会有这个目录）
+
+代理环境的沙箱禁止创建子进程（任何带管道 stdio 的 `spawn` 都返回 `EPERM`），因此 Vite 与 vitest 都无法启动（它们依赖 esbuild 子进程）。为了让核心逻辑仍然得到**真实执行**的验证，采用了替代证据链：
+
+1. `tsc -p .local-verify/tsconfig.json` 把 `src/shared`、`src/data`、`src/services`、`src/content`（诊断与适配器）、`src/platform/storage.ts` 编译为 CommonJS；
+2. `node .local-verify/out/.local-verify/verify.js` 直接 `require` 编译产物执行 87 项断言。
+
+它**不替代** `npm test`：`tests/` 下的 vitest 套件仍需你在本机跑一次（覆盖同样的行为，且是交付给项目的正式测试）。若你不希望保留该目录，可直接删除 `.local-verify/`（`.gitignore` 已忽略其产物），不影响扩展与正式测试。
+
+---
+
+## 5. 待你执行：本机构建与测试
+
+按顺序执行并回填：
+
+| # | 命令 | 预期 | 实际（回填） |
+|---|---|---|---|
+| 1 | `node -v` | ≥ 18 | |
+| 2 | `npm install` | 无 ERROR，`node_modules/` 生成 | |
+| 3 | `npm run typecheck` | 无输出/0 错误 | |
+| 4 | `npm test` | 全部测试通过（期望 8 个测试文件、约 75 个用例，含消息层集成测试） | |
+| 5 | `npm run build` | 成功，`dist/` 内包含 `manifest.json`、`background.js`、`sidepanel.html`、`options.html`、`content.js`、`icons/` | |
+| 6 | `chrome://extensions` 加载 `dist/` | 无 manifest 错误、无红色错误 | |
+| 7 | 点工具栏图标 | 侧边栏打开，显示「当前任务」与「读取当前页面诊断」 | |
+| 8 | 管理页 → 任务 → 新建任务 | 保存后出现在列表；刷新页面仍在 | |
+| 9 | 编辑/复制/暂停/删除任务 | 各操作生效；删除弹确认框；重新打开浏览器后数据仍在 | |
+
+若第 3–5 步任一失败，请把完整报错贴给我（含 `npm run build` 的完整输出），我据此修复。
+
+---
+
+## 6. 待你执行：真实页面探针协议（docs/04 §3）
+
+前置：Chrome ≥ 114；已加载 `dist/`；已登录自己的小红书账号。
+
+| 步骤 | 操作 | 预期 | 实际观测（回填） |
+|---|---|---|---|
+| 1 | 打开 xiaohongshu.com 并登录 | 正常登录 | |
+| 2 | 搜索「广交会」，等待结果加载 | 出现笔记卡片 | |
+| 3 | 在**该标签页**点扩展图标，打开侧边栏 | 侧边栏打开且不随点击消失 | |
+| 4 | 点「读取当前页面诊断」 | `pageType=search_results`，`noteSections > 0`，无错误码 | |
+| 5 | 向下滚动加载更多后再次读取 | 候选笔记数增加 | |
+| 6 | 换关键词「interpreter」再读取 | 候选集合变化，`totalCandidates` 明显不同 | |
+| 7 | 打开笔记详情页后再读取 | `pageType=note_detail`（或明确提示不支持） | |
+| 8 | **新标签页**直接打开小红书（不在该页点图标）后读取 | 出现权限不足/不支持的明确提示，而非静默失败 | |
+| 9 | 退出登录后再读取 | 出现需要登录的提示（阶段 2 记录原始信号，不做推断） | |
+| 10 | 触发验证码/风控场景后读取 | 有明确提示且**不尝试绕过** | |
+| 11 | 汇总：日期 / Chrome 版本 / `selectorVersion` / 各步 `signals` 快照 | 形成完整记录 | |
+
+### 记录表（每步一行，可复制多份）
+
+```text
+日期：             Chrome 版本：          扩展版本：0.1.0
+协议步骤：#       关键词/页面：
+selectorVersion：
+signals 快照（从侧边栏「复制诊断 JSON」粘贴）：
+{
+}
+结论（符合预期 / 不符合 + 现象）：
+```
+
+**判定规则**：步骤 1–7 全部符合预期，才可标记「小红书搜索结果页读取：真实环境验证通过（截至 YYYY-MM-DD）」。步骤 8–10 验证错误处理路径。
+
+> 阶段 2 的探针**不判定**登录墙与验证码（只输出原始信号）。步骤 9、10 的观测结果将直接决定阶段 3 的 `LOGIN_REQUIRED` / `CAPTCHA_OR_RISK_CONTROL` 判定规则怎么写 —— 请务必保留原始 JSON。
+
+---
+
+## 7. 阶段 3 依赖的实测信息清单
+
+回填上面的记录后，阶段 3 需要你提供（或从记录中提取）：
+
+1. 搜索结果页笔记卡片的**稳定选择器**（标题、链接、摘要、时间的 DOM 路径），以及 `noteSections`/`exploreLinks` 计数与真实卡片数是否一致；
+2. 发布时间文本的**真实格式**（"3 天前"、"2026-03-05"、绝对时间戳…）；
+3. 滚动加载的触发方式与"新增卡片"的可观测特征；
+4. 未登录/验证码场景下的**可观测信号**（哪个 class、哪段文案、是否跳转登录页）；
+5. 笔记详情页与个人主页的 URL 形态与页面类型判定结果。

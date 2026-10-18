@@ -1,0 +1,9 @@
+node_modules/
+dist/
+*.local
+.DS_Store
+# 沙箱环境下的本地依赖缓存（不影响正常安装）
+.npm-cache/
+# 本地替代验证脚本产物（仅代理环境使用）
+.local-verify/out/
+.local-verify/probe-out/

@@ -1,0 +1,26 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "outDir": "./out",
+    "rootDir": "..",
+    "types": ["chrome"]
+  },
+  "include": [
+    "verify.ts",
+    "../src/shared/**/*",
+    "../src/data/**/*",
+    "../src/services/**/*",
+    "../src/platform/**/*",
+    "../src/messaging/**/*",
+    "../src/background/**/*",
+    "../src/content/diagnostics.ts",
+    "../src/content/adapters/**/*"
+  ]
+}

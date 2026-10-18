@@ -1,0 +1,31 @@
+{
+  "name": "canton-fair-assistant",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "广交会推广助手 - Canton Fair Outreach Assistant（Chrome 扩展，Manifest V3）",
+  "scripts": {
+    "build": "vite build && vite build -c vite.content.config.ts",
+    "build:content": "vite build -c vite.content.config.ts",
+    "dev": "node scripts/watch.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "idb": "^8.0.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.0.270",
+    "@types/react": "^18.3.5",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.1",
+    "fake-indexeddb": "^6.0.0",
+    "jsdom": "^25.0.0",
+    "typescript": "^5.5.4",
+    "vite": "^5.4.2",
+    "vitest": "^2.1.1"
+  }
+}
