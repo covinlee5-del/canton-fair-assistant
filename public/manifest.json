@@ -4,6 +4,7 @@
   "description": "在你正常浏览小红书时发现广交会相关笔记，管理宣传文案与推广任务。本地优先，不自动发布评论。",
   "version": "0.1.0",
   "permissions": ["storage", "activeTab", "scripting", "sidePanel"],
+  "host_permissions": ["*://*.xiaohongshu.com/*"],
   "background": { "service_worker": "background.js", "type": "module" },
   "side_panel": { "default_path": "sidepanel.html" },
   "options_page": "options.html",
