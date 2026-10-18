@@ -7,3 +7,4 @@ dist/
 # 本地替代验证脚本产物（仅代理环境使用）
 .local-verify/out/
 .local-verify/probe-out/
+.local-verify/shadow-dist/
