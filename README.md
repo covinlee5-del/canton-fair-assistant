@@ -189,6 +189,8 @@ canton-fair-assistant/
 
 为了让 ChatGPT、Grok 等外部工具与本地开发互不踩坑，约定如下：
 
+0. **AI 先读 `AGENTS.md`**（红线、分层、自检命令、提交约定）；**人读 [`docs/07-AI协作操作指南.md`](docs/07-AI协作操作指南.md)**（ChatGPT 连接器授权步骤、Grok 用法、三种工作流、踩坑清单）。
+
 1. **单一事实来源是 `main` 分支**。任何工具改动前先读 `README.md` → `docs/02-技术架构.md` → `docs/03-数据模型.md`，不要凭猜测改类型或消息契约。
 2. **每次改动一个主题**，提交信息用 `feat:` / `fix:` / `docs:` / `test:` / `chore:` 前缀（示例：`feat: 笔记提取器支持卡片标题`）。
 3. **不提交产物与依赖**：`node_modules/`、`dist/`、`.npm-cache/`、`.local-verify/out|probe-out/` 已在 `.gitignore` 中排除。

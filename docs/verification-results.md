@@ -24,8 +24,10 @@
 | 依赖安装 | `npm install` | ⚠️ 仅能部分验证 | 用户目录下的 npm 缓存被沙箱拒绝（EPERM），改用工作区内缓存 `--cache .npm-cache` 后下载成功；随后因沙箱禁止子进程，安装脚本无法执行，改用 `--ignore-scripts` 完成安装。**你在本机直接 `npm install` 即可，不需要这些参数。** |
 | 类型检查 | `node node_modules/typescript/bin/tsc --noEmit` | ✅ 通过（0 错误） | 覆盖 `src/` + `tests/` + 三个配置文件，strict + `noUncheckedIndexedAccess` |
 | 核心逻辑执行验证 | `node .local-verify/out/.local-verify/verify.js` | ✅ 87/87 项通过 | 见 §3；做法见 §4 |
-| `npm run build` | `vite build` | ⛔ 无法执行 | 沙箱禁止子进程：`Error: spawn EPERM`（esbuild 启动失败），发生在加载配置阶段，**与项目代码无关** |
-| `npm test`（vitest） | `vitest run` | ⛔ 无法执行 | 同上：esbuild 无法启动 |
+| `npm run build`（交付配置） | `vite build` | ⛔ 无法直接执行 | 沙箱禁止子进程：`Error: spawn EPERM`（esbuild 启动失败），发生在加载配置阶段，**与项目代码无关** |
+| 构建等价执行（影子配置） | `node .local-verify/shadow-build.mjs` | ✅ 两次构建均成功 | 产物见 §4.1；覆盖真实入口（两个 HTML + SW + 内容脚本） |
+| `npm test`（交付配置） | `vitest run` | ⛔ 无法直接执行 | 同上：esbuild 无法启动 |
+| 测试等价执行（影子配置） | `node .local-verify/shadow-test.mjs` | ✅ 8 文件 / 72 用例全部通过 | `Test Files 8 passed (8)`、`Tests 72 passed (72)`、退出码 0（见 §4.2） |
 | Chrome 加载 / 侧边栏 / 管理页 | — | ⏳ 待执行 | 需要真实浏览器，由你完成 |
 | 真实小红书页面探针 | — | ⏳ 待执行 | 见 §5 协议记录 |
 
@@ -54,7 +56,7 @@
 | 2 | 命令处理器返回 `Result<T>`，消息路由器又包了一层信封 | 所有 UI 调用拿到「Result 套 Result」，`data.tasks` 变成不可用对象，页面白屏/数据错乱 | 新增 `unwrap()`：服务层仍返回 `Result`，命令层拆包后返回纯值或抛 `AppError`，路由器只包一层；已加入端到端断言 |
 | 3 | 内容脚本被打包为 IIFE（`var X = (function(){...})()`），脚本完成值为空 | `executeScript({files})` 返回的 `result` 是 `undefined` → 「读取诊断」在真实浏览器里必然报「内容脚本未返回结果」 | 改为两段式注入：content.js 把诊断写到 isolated world 的全局键，background 再注入自包含 `func` 读回；已加入断言 |
 
-这两处都是**跨层契约错误**，`tsc` 无法捕获（`payload as TaskInput` 是类型断言），只有真实跑一遍消息链路才会暴露 —— 这也是本阶段必须做端到端验证的原因。
+以上三处都是**跨层契约错误**，`tsc` 无法捕获（`payload as TaskInput` 是类型断言；双信封只有真实调用才暴露；IIFE 完成值要看打包产物），只有真实跑一遍构建与消息链路才会暴露 —— 这也是本阶段必须做端到端验证的原因。
 
 ### 红线核查（源码级）
 
@@ -78,6 +80,53 @@
 
 它**不替代** `npm test`：`tests/` 下的 vitest 套件仍需你在本机跑一次（覆盖同样的行为，且是交付给项目的正式测试）。若你不希望保留该目录，可直接删除 `.local-verify/`（`.gitignore` 已忽略其产物），不影响扩展与正式测试。
 
+### 4.1 构建等价执行（`.local-verify/shadow-build.mjs`）
+
+目的：证明**交付的源码与配置语义**能真正构建出可安装的 `dist/`，而不只是"类型能过"。
+
+与交付配置的三点差异（均为绕开沙箱限制，不涉及业务代码）：
+
+| 差异 | 交付配置 | 影子配置 | 原因 |
+|---|---|---|---|
+| 配置加载 | `vite.config.ts` 文件 | 内联对象（`configFile: false`） | Vite 5 一律用 esbuild 打包配置文件，沙箱内必然 `EPERM` |
+| 转换器 | Vite 内置 esbuild | `ts.transpileModule` 插件 + `esbuild: false` | esbuild 需要子进程 |
+| 依赖解析 | 默认 | react/react-dom/scheduler 别名到各自 production CJS 构建 | Vite 的 `vite:define` 插件即使在 `esbuild:false` 下仍强制调用 `esbuild.transform` 替换 `process.env.NODE_ENV`；别名后依赖图中不再出现该文本，插件自然不触发 |
+
+入口、`entryFileNames`（`background` → `background.js`）、`publicDir`、两次构建顺序、lib IIFE 与 `emptyOutDir` 均与交付配置一致。执行结果（主构建 `✓ 70 modules transformed`，内容脚本构建 `✓ 9 modules transformed`）：
+
+| 产物 | 大小 | 说明 |
+|---|---|---|
+| `manifest.json` | 644 B | 从 `public/` 复制 |
+| `icons/icon16,48,128.png` | 212 / 428 / 1015 B | 同上 |
+| `background.js` | 31.1 kB | 位于 manifest 指定路径；相对导入同目录 `assets/` 共享块 |
+| `content.js` | 9.6 kB | **单文件 IIFE：`(function () { … })();`** |
+| `sidepanel.html` / `options.html` | 572 / 583 B | `<title>广交会推广助手</title>` 编码正确；引用 `/assets/*.js/css` |
+| `assets/*.js`、`assets/*.css` | 6.0 / 8.0 / 19.7 / 148.2 kB、5.1 kB | 页面入口 + 共享块 + 样式 |
+
+**关键证据（缺陷 #3 的实证）**：内容脚本产物确实形如 `(function () { … })();` —— 这是没有返回值的表达式语句，`chrome.scripting.executeScript({ files: [...] })` 拿到的 `result` 只能是 `undefined`。因此两段式注入（写全局键 → 二次注入 `func` 读回）是**必要**的，不是过度设计。
+
+### 4.2 测试等价执行（`.local-verify/shadow-test.mjs`）
+
+用 `startVitest()` 内联配置执行**交付的** `tests/**/*.test.ts`，差异仅为：`config: false`（不走配置文件）、`esbuild: false` + tsc 转换插件、`pool: 'threads'`（worker_threads，不经过 `child_process`）、同样的生产 CJS 别名。
+
+结果：
+
+```text
+ ✓ tests/unit/normalization.test.ts (12 tests)
+ ✓ tests/unit/utils.test.ts (9 tests)
+ ✓ tests/unit/settings-repository.test.ts (6 tests)
+ ✓ tests/unit/task-service.test.ts (12 tests)
+ ✓ tests/unit/diagnostics.test.ts (8 tests)
+ ✓ tests/integration/repositories.test.ts (8 tests)
+ ✓ tests/integration/message-layer.test.ts (11 tests)
+ ✓ tests/unit/probe-dom.test.ts (6 tests)
+
+ Test Files  8 passed (8)
+      Tests  72 passed (72)
+```
+
+即：交付的 8 个测试文件、72 个用例全绿，退出码 0。你本机执行 `npm test` 时应看到同样的 8 文件 / 72 用例（报告格式可能略有差异）。
+
 ---
 
 ## 5. 待你执行：本机构建与测试
@@ -89,8 +138,8 @@
 | 1 | `node -v` | ≥ 18 | |
 | 2 | `npm install` | 无 ERROR，`node_modules/` 生成 | |
 | 3 | `npm run typecheck` | 无输出/0 错误 | |
-| 4 | `npm test` | 全部测试通过（期望 8 个测试文件、约 75 个用例，含消息层集成测试） | |
-| 5 | `npm run build` | 成功，`dist/` 内包含 `manifest.json`、`background.js`、`sidepanel.html`、`options.html`、`content.js`、`icons/` | |
+| 4 | `npm test` | 8 个测试文件 / **72 个用例**全部通过（代理环境已用影子配置实测到该结果，见 §4.2） | |
+| 5 | `npm run build` | 成功；`dist/` 含 `manifest.json`、`background.js`、`sidepanel.html`、`options.html`、`content.js`、`icons/`、`assets/`（影子构建已产出同样结构，见 §4.1） | |
 | 6 | `chrome://extensions` 加载 `dist/` | 无 manifest 错误、无红色错误 | |
 | 7 | 点工具栏图标 | 侧边栏打开，显示「当前任务」与「读取当前页面诊断」 | |
 | 8 | 管理页 → 任务 → 新建任务 | 保存后出现在列表；刷新页面仍在 | |

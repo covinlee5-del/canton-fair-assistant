@@ -101,6 +101,18 @@ const shared = {
   esbuild: false,
   logLevel: 'info',
   plugins: [tsTransform()],
+  // 影子构建专用：把 react 系依赖指向 production CJS 构建，使依赖图里
+  // 完全不出现 process.env / import.meta.env，从而不触发 vite:define 的
+  // esbuild.transform（沙箱内无法 spawn）。交付配置不含这些别名。
+  resolve: {
+    alias: [
+      { find: /^react$/, replacement: path.resolve(root, 'node_modules/react/cjs/react.production.min.js') },
+      { find: /^react\/jsx-runtime$/, replacement: path.resolve(root, 'node_modules/react/cjs/react-jsx-runtime.production.min.js') },
+      { find: /^react-dom$/, replacement: path.resolve(root, 'node_modules/react-dom/cjs/react-dom.production.min.js') },
+      { find: /^react-dom\/client$/, replacement: path.resolve(root, 'node_modules/react-dom/cjs/react-dom.production.min.js') },
+      { find: /^scheduler$/, replacement: path.resolve(root, 'node_modules/scheduler/cjs/scheduler.production.min.js') },
+    ],
+  },
 };
 
 // ---- 1. 主构建（与 vite.config.ts 对应）----
