@@ -6,6 +6,14 @@
 > **阶段 2 状态（2026-10-18 更新）：✅ 通过。** 四条标准全部满足 —— ① typecheck 无输出 / 8 文件 72 用例全绿 / `dist/` 完整；② Chrome 加载无红色错误；③ C 部分 11 项全 ✅；④ D 部分 1–7 符合预期、8 在站点权限下能读到、9 仅记录信号（判定排阶段 3）、10 注明未触发。
 > 唯一曾阻断验收的缺陷（`activeTab` 拿不到授权）已修复并在交付版上复验通过，见 §6.1。
 
+> **阶段 4 自动化状态（2026-10-19 更新）：✅ 通过。** 本机真实执行：`npm run typecheck` 0 错误；
+> `npm test` 15 个测试文件 / **166 个用例**全绿；`npm run build` 产出 `dist/`（14 个文件）。
+> 红线扫描（`src/**` 全量）对网络请求、Cookie、自动滚动/点击、向页面写入等 API **0 命中**。
+> 详细记录见 `docs/11-阶段4任务清单与操作手册.md` §7。
+>
+> **仍未执行**：阶段 3 T3.10 与阶段 4 的「手动」验收均需本人在真实 Chrome 页面操作，§8 复验表仍为空白，
+> 因此**不得**声称「已在真实小红书页面验收通过」。
+
 ---
 
 ## 1. 环境信息
@@ -222,6 +230,76 @@
 - **观察 C（第 9 步无法在阶段 2 判定）**：`loginWallDetected` 在 `src/content/adapters/selectors.ts` 中硬编码 `false`，且第 9 步的数值与第 8 步完全相同，既未证实也未证伪。`LOGIN_REQUIRED` 的真实判定规则（依据哪个 DOM 信号/文案）排入阶段 3，与 T3.1 一起做。
 
 > 阶段 2 的探针**不判定**登录墙与验证码（只输出原始信号）。步骤 9、10 的观测结果将直接决定阶段 3 的 `LOGIN_REQUIRED` / `CAPTCHA_OR_RISK_CONTROL` 判定规则怎么写 —— 请务必保留原始 JSON。
+
+## 8. 阶段 3 真实页面复验（待用户执行）
+
+自动化 fixture 与 IndexedDB/message 集成测试不能替代真实页面验收。当前选择器对照表见 `docs/10-选择器对照表.md`；标题、作者、摘要、时间与登录/风控规则仍有推断项。本节不得根据 fixture 结果填写为真实通过。
+
+复验环境：Chrome 版本 `________`；扩展版本/构建时间 `0.1.0 / 2026-10-19 12:01`（含缺陷 E/F/G 修复，需重新加载扩展）；测试日期 `2026-10-19`；搜索词 `广交会`。
+
+| # | 检查项（对应 `docs/09` §5「真实页面」五条） | 记录 |
+|---|---|---|
+| 1 | 搜索结果页可见卡片数 / 页面 DOM 候选数 / 插件提取数 / 侧边栏清单条数 | `通过：22 / 22 / 20 / 20（页面类型=搜索结果页，地址 /search_result_ai；跳过 2 张为懒加载占位）` |
+| 2 | 抽查笔记 1：页面标题 / 插件标题；作者；链接路径是否一致 | `通过：标题一致；作者一致；链接路径一致` |
+| 3 | 抽查笔记 2：页面标题 / 插件标题；作者；链接路径是否一致 | `通过：标题一致；作者一致；链接路径一致` |
+| 4 | 抽查笔记 3：页面标题 / 插件标题；作者；链接路径是否一致 | `通过：标题一致；作者一致；链接路径一致` |
+| 5 | 同一页连续读取两次：新增数、重复数、最终行数（应不增长） | `通过：第 1 次「新增 20」；第 2 次「新增 0 / 已存在 20」；最终 20 行，未增长（2026-10-19，搜索词「广交会」，任务「广交会翻译机会」）` |
+| 6 | 用户手动滚动加载后再次读取：新增数、重复数、最终行数（旧的应不重复） | `未通过（暴露 bug，已修复待复测）：2026-10-19 11:37 复测时侧边栏显示「识别卡片 30 / 成功提取 0 / 跳过 0 / 新增 0 / 已存在 0」，并报 NO_VISIBLE_NOTES。30 ≠ 0+0，数学上不成立。根因：当时停在笔记详情页（滚动中打开了笔记，URL 变 /explore/{id}），而「识别卡片」取 signals.noteSections（真实 DOM 残留的搜索卡片 30 个），「提取/跳过」来自另一份按页面类型短路的结果（详情页不提取 → 0/0）。已在当日修复：① 识别卡片改用 totalCandidates，保证「提取+跳过=识别」；② 详情页改报新错误码 NOT_SEARCH_RESULTS，文案说明「当前不是搜索结果页」；③ 顺带修 durationMs 恒为 0（startedAt 曾在扫描之后才取）。滚动去重本身尚未取得有效数据` |
+| 7 | 非小红书页或异常结构提示（错误码与文案；不得是静默空列表） | `部分通过（已改进文案，待复测）：在 www.baidu.com 点读取，侧边栏出现红色错误横幅，文案「无法访问当前页面。请在目标页面上重新点击扩展图标，然后再试。」——**没有静默返回空列表**，符合硬性要求。但错误码是 PERMISSION_DENIED 而非 UNSUPPORTED_PAGE：host_permissions 只含 xiaohongshu，非小红书页 tab.url 不可读，代码走进了「地址拿不到」分支，文案会误导用户以为自己点坏了。已改为 UNSUPPORTED_PAGE 并重写文案（点明「当前标签页不是小红书」）` |
+| 8 | 字段级 DOM 路径是否与 `docs/10` 对照表的 `inferred` 项一致（重点：标题/作者/时间/摘要） | `通过：标题、作者、时间、摘要均取到正确位置（用户目视核对一致）` |
+| 9 | 真实发布时间文本样例（用于核对 `parseXhsTime` 覆盖度） | `2026-10-18`（绝对日期，非「N天前」；`parseXhsTime` 的 `YYYY-MM-DD` 分支已覆盖，`tests/unit/time-parse.test.ts` 14 例通过） |
+| 10 | 未登录 / 验证码场景的信号（用于核对 `LOGIN_REQUIRED` / `CAPTCHA_OR_RISK_CONTROL`） | `通过（登录墙）：2026-10-19 未登录状态下读取，页面出现登录弹窗，侧边栏同时出现「LOGIN_REQUIRED：检测到需要登录才能查看内容。请先在小红书登录自己的账号，然后重试。」→ LOGIN_WALL_RULE 的 5 条选择器作为**组**在真实页面命中，不再是阶段 2 的硬编码 false。验证码/风控未触发（`captchaDetected=false`，见第 11 项 JSON），CAPTCHA_OR_RISK_CONTROL 仍待真实样本` |
+| 11 | 诊断 JSON（仅粘贴脱敏后的诊断；勿粘贴真实笔记正文/账号信息） | `通过，原始 JSON 见下方「§8.1 真实诊断 JSON（已脱敏）」；隐私核对：pageUrl 为 www.xiaohongshu.com/search_result_ai（无查询串、无 token），不含任何笔记标题/正文/账号信息；同时据此定位并修复了 durationMs=0（见第 6 项）` |
+
+判定：`待执行 / 通过 / 未通过`（选择一项）`未通过（2026-10-19）`。原因：第 6、7 项复测暴露了 3 个真实缺陷（详情页误报「没有笔记」、非小红书页错误码与文案不符、durationMs 恒为 0），已全部修复并通过 `typecheck` / `test`（15 文件 177 用例）/ `build`；**第 6、7 项须在重新加载扩展后复测**，通过前本表整体不算通过。
+
+**注意**：第 8–10 项即使整体判定为「通过」也要单独记录 —— 它们决定 `docs/10` 里哪些规则能从 `inferred` 升级为 `measured`。
+
+### §8.1 真实诊断 JSON（已脱敏）
+
+2026-10-19 11:44 在搜索词「广交会」的搜索结果页读取所得。`pageUrl` 仅保留 host+pathname；不含笔记正文、标题、作者、账号或 Cookie。
+
+```json
+{
+  "durationMs": 0,
+  "errors": [
+    {
+      "code": "EXTRACTION_PARTIAL",
+      "detail": "partial=2/20",
+      "message": "部分笔记的信息不完整（如缺少时间），已提取可见内容。"
+    }
+  ],
+  "extracted": 20,
+  "finishedAt": "2026-10-19T03:44:42.725Z",
+  "isSupported": true,
+  "pageType": "search_results",
+  "pageUrl": "www.xiaohongshu.com/search_result_ai",
+  "partial": 2,
+  "selectorVersion": "xhs-1.0.0",
+  "signals": {
+    "appShellRendered": true,
+    "captchaDetected": false,
+    "exploreLinks": 120,
+    "loginWallDetected": false,
+    "noteSections": 22,
+    "readyState": "complete",
+    "resultContainers": 1,
+    "uniqueNoteLinks": 81
+  },
+  "skipReasons": { "no-identifiable-content": 2 },
+  "skipped": 2,
+  "startedAt": "2026-10-19T03:44:42.725Z",
+  "totalCandidates": 22
+}
+```
+
+读这份 JSON 得到的结论（都写进了代码）：
+
+1. `durationMs: 0` 且 `startedAt === finishedAt` —— 计时起点取错了位置，是 bug，已修（现在取扫描前后各一次）。
+2. `noteSections: 22` 与 `totalCandidates: 22`、`extracted: 20`、`skipped: 2` 自洽（20+2=22），说明搜索结果页的计数链路是对的；错的是详情页那条路径（第 6 项）。
+3. `resultContainers: 1`、`appShellRendered: true`、`readyState: complete` —— 页面确实是渲染完成的搜索结果页，不是"没加载完"。
+4. `exploreLinks: 120` 但 `uniqueNoteLinks: 81`、`noteSections: 22` —— 同一篇笔记在页面里会出现多个 `/explore/` 链接（封面、标题、作者入口），所以链接计数不能直接当卡片数用。
+5. `loginWallDetected: false` 出现在已登录页面，与第 10 项「未登录时为 true」互为对照 —— 该信号确实会随登录态变化，不是恒值。
 
 ---
 
