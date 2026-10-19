@@ -3,6 +3,7 @@ export const NAV_ITEMS = [
   { key: 'tasks', label: '任务' },
   { key: 'notes', label: '笔记' },
   { key: 'copy', label: '文案' },
+  { key: 'activity', label: '活动' },
   { key: 'stats', label: '统计' },
   { key: 'settings', label: '设置' },
 ] as const;

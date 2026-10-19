@@ -31,7 +31,13 @@ export interface RelevanceResult {
 
 export interface Note {
   id: ID;
-  canonicalUrl: string; // https://www.xiaohongshu.com/explore/{noteId}
+  canonicalUrl: string; // https://www.xiaohongshu.com/explore/{noteId}（去重与展示用，不含查询参数）
+  /**
+   * 用户点「打开笔记」时实际打开的链接。
+   * 小红书需要 xsec_token 才能在无登录态的新标签页查看，故此处保留必要授权参数；
+   * 旧数据可能没有该字段，读取时回退到 canonicalUrl。
+   */
+  openUrl?: string | null;
   dedupeKey: string; // "url:{noteId}" 或 "fp:{fingerprint}"
   dedupeKeyType: 'url' | 'fingerprint';
   title: string;

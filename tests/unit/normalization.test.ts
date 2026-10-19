@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  buildNoteOpenUrl,
   canonicalizeNoteUrl,
   extractNoteId,
   parsePageUrl,
@@ -33,6 +34,73 @@ describe('canonicalizeNoteUrl', () => {
     expect(canonicalizeNoteUrl('not a url')).toBeNull();
     expect(canonicalizeNoteUrl(null)).toBeNull();
     expect(canonicalizeNoteUrl(undefined)).toBeNull();
+  });
+});
+
+describe('buildNoteOpenUrl（修复：打开笔记报 300031 / 扫码登录）', () => {
+  it('保留 xsec_token 与 xsec_source，否则打开会被要求扫码', () => {
+    const url = `https://www.xiaohongshu.com/explore/${NOTE_ID}?xsec_token=ABtok123&xsec_source=pc_search`;
+    const opened = buildNoteOpenUrl(url);
+    expect(opened).not.toBeNull();
+    const parsed = new URL(opened!);
+    expect(parsed.pathname).toBe(`/explore/${NOTE_ID}`);
+    expect(parsed.searchParams.get('xsec_token')).toBe('ABtok123');
+    expect(parsed.searchParams.get('xsec_source')).toBe('pc_search');
+  });
+
+  // 2026-10-19 实测真实链接，逐字复刻：路径是 /search_result/，token 末尾带 '='
+  it('原样复刻实测链接：/search_result/ 路径 + token 末尾的 = 不得被转义', () => {
+    const real =
+      'https://www.xiaohongshu.com/search_result/6ad042c8000000000b005f69' +
+      '?xsec_token=ABt8NU38osQAK2s2mjmBqJ65KkEgjwPT0gIUxcrBnaEU0=&xsec_source=';
+    const opened = buildNoteOpenUrl(real);
+    expect(opened).toBe(
+      'https://www.xiaohongshu.com/search_result/6ad042c8000000000b005f69' +
+        '?xsec_token=ABt8NU38osQAK2s2mjmBqJ65KkEgjwPT0gIUxcrBnaEU0=',
+    );
+    // 关键：不能出现 %3D 转义
+    expect(opened?.endsWith('EU0=')).toBe(true);
+    expect(opened?.includes('%3D')).toBe(false);
+  });
+
+  it('路径原样保留：/search_result/ 不被改写成 /explore/', () => {
+    const url = `https://www.xiaohongshu.com/search_result/${NOTE_ID}?xsec_token=T`;
+    expect(buildNoteOpenUrl(url)).toBe(
+      `https://www.xiaohongshu.com/search_result/${NOTE_ID}?xsec_token=T`,
+    );
+  });
+
+  it('丢弃追踪类参数，只留白名单内的', () => {
+    const url =
+      `https://www.xiaohongshu.com/explore/${NOTE_ID}` +
+      '?xsec_token=T&utm_source=share&share_from_user_hidden=true&referer=abc';
+    const parsed = new URL(buildNoteOpenUrl(url)!);
+    expect([...parsed.searchParams.keys()]).toEqual(['xsec_token']);
+  });
+
+  it('没有查询参数时退化为不带参数的原路径', () => {
+    const url = `https://www.xiaohongshu.com/explore/${NOTE_ID}`;
+    expect(buildNoteOpenUrl(url)).toBe(`https://www.xiaohongshu.com/explore/${NOTE_ID}`);
+  });
+
+  it('/discovery/item/ 保留原路径并保留 token', () => {
+    const url = `https://www.xiaohongshu.com/discovery/item/${NOTE_ID}?xsec_token=Z9`;
+    const parsed = new URL(buildNoteOpenUrl(url)!);
+    expect(parsed.pathname).toBe(`/discovery/item/${NOTE_ID}`);
+    expect(parsed.searchParams.get('xsec_token')).toBe('Z9');
+  });
+
+  it('非法或非小红书链接返回 null', () => {
+    expect(buildNoteOpenUrl(`https://example.com/explore/${NOTE_ID}?xsec_token=x`)).toBeNull();
+    expect(buildNoteOpenUrl('not a url')).toBeNull();
+    expect(buildNoteOpenUrl(null)).toBeNull();
+  });
+
+  it('token 变化不影响去重键（canonicalUrl 始终不带 query）', () => {
+    const a = `https://www.xiaohongshu.com/explore/${NOTE_ID}?xsec_token=A&xsec_source=pc_search`;
+    const b = `https://www.xiaohongshu.com/explore/${NOTE_ID}?xsec_token=B&xsec_source=pc_feed`;
+    expect(canonicalizeNoteUrl(a)).toBe(canonicalizeNoteUrl(b));
+    expect(buildNoteOpenUrl(a)).not.toBe(buildNoteOpenUrl(b));
   });
 });
 

@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<!--
+  模拟「页面改版」（tests/fixtures/changed-structure.html）
+  用途：验证结构明显变化时必须报 DOM_STRUCTURE_CHANGED，
+        绝不静默返回空列表（阶段 3 T3.8、T3.9）。
+
+  特征：页面仍然是搜索结果页、卡片容器仍然存在（section.note-item），
+        但卡片内部结构被改版 —— 没有笔记链接、没有标题节点，
+        提取器一条也取不出来。这正是「改版」在真实环境里的表现。
+-->
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <title>广交会 - 小红书搜索（改版模拟）</title>
+  </head>
+  <body>
+    <div id="app">
+      <div class="feeds-container">
+        <section class="note-item">
+          <div class="new-cover-x"></div>
+          <div class="new-footer-x">
+            <span class="new-title-x">标题换了 class 名</span>
+          </div>
+        </section>
+        <section class="note-item">
+          <div class="new-cover-x"></div>
+          <div class="new-footer-x">
+            <span class="new-title-x">第二个卡片也取不出来</span>
+          </div>
+        </section>
+        <section class="note-item">
+          <div class="new-cover-x"></div>
+        </section>
+      </div>
+    </div>
+  </body>
+</html>

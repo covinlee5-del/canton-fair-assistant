@@ -7,6 +7,9 @@ import { registerTaskCommands } from './commands/task-commands';
 import { registerSettingsCommands } from './commands/settings-commands';
 import { registerDashboardCommand } from './commands/dashboard-commands';
 import { registerReadPageCommand } from './commands/read-page';
+import { registerNoteCommands } from './commands/note-commands';
+import { registerCopyCommands } from './commands/copy-commands';
+import { registerActivityCommands } from './commands/activity-commands';
 import { registerLifecycleHooks } from './lifecycle';
 import { isSidePanelSupported } from '../platform/side-panel';
 
@@ -16,6 +19,9 @@ function main(): void {
   registerSettingsCommands();
   registerDashboardCommand();
   registerReadPageCommand();
+  registerNoteCommands();
+  registerCopyCommands();
+  registerActivityCommands();
   registerLifecycleHooks();
 
   // 点击扩展图标直接打开侧边栏（Chrome 114+）

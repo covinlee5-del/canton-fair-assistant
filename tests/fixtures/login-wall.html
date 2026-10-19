@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<!--
+  模拟「登录墙」（tests/fixtures/login-wall.html）
+  用途：验证检测到登录墙时返回 LOGIN_REQUIRED，
+        只提示用户自行登录，绝不尝试绕过（红线：不绕过登录/验证码）。
+-->
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <title>登录 - 小红书</title>
+  </head>
+  <body>
+    <div id="app">
+      <div class="login-container">
+        <div class="qrcode-login">
+          <p>扫码登录小红书</p>
+        </div>
+      </div>
+      <div class="feeds-container"></div>
+    </div>
+  </body>
+</html>

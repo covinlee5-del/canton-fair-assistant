@@ -47,7 +47,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
           </div>
           <div>
             <dt>笔记总数</dt>
-            <dd>0（阶段 3 起提供）</dd>
+            <dd>{dash.status === 'success' ? (data?.noteCount ?? 0) : '—'}</dd>
           </div>
         </dl>
       </div>

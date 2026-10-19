@@ -21,7 +21,13 @@ export interface AppDB extends DBSchema {
   notes: {
     key: ID;
     value: Note;
-    indexes: { 'by-status': NoteStatus; 'by-taskIds': ID; 'by-updatedAt': ISODate };
+    indexes: {
+      'by-status': NoteStatus;
+      'by-taskIds': ID;
+      'by-updatedAt': ISODate;
+      // 阶段 3 T3.5：按去重键查已有记录，保证重复读取不产生重复行
+      'by-dedupeKey': string;
+    };
   };
   copies: {
     key: ID;
@@ -43,8 +49,8 @@ let dbPromise: Promise<IDBPDatabase<AppDB>> | null = null;
 export function getDb(): Promise<IDBPDatabase<AppDB>> {
   if (!dbPromise) {
     dbPromise = openDB<AppDB>(DB_NAME, DB_VERSION, {
-      upgrade(db, oldVersion) {
-        runMigrations(db, oldVersion);
+      upgrade(db, oldVersion, _newVersion, tx) {
+        runMigrations(db, oldVersion, tx);
       },
     }).catch((cause: unknown) => {
       // 打开失败时重置 promise，允许重试

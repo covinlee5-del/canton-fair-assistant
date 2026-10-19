@@ -49,6 +49,21 @@ export function appError(code: ErrorCode, detail?: string, cause?: unknown): App
   return { code, message: messageFor(code), detail, cause };
 }
 
+/**
+ * 按错误码构造 AppError，但用更具体的业务文案覆盖默认文案。
+ *
+ * 用于「同一个错误码、但原因必须说清楚」的场景（如批量操作到底是哪一条不合法）。
+ * 默认文案仍可通过 messageFor(code) 取得，便于回溯。
+ */
+export function appErrorWithMessage(
+  code: ErrorCode,
+  message: string,
+  detail?: string,
+  cause?: unknown,
+): AppError {
+  return { code, message, detail, cause };
+}
+
 /** 存储异常统一构造 */
 export function storageError(action: string, cause: unknown): AppError {
   const detail = cause instanceof Error ? cause.message : String(cause);

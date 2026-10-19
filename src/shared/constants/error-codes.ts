@@ -11,6 +11,8 @@ export const ERROR_MESSAGES: Record<ErrorCode, string> = {
     '页面内容还没加载完成。请稍候片刻再点读取。',
   [ErrorCode.NO_VISIBLE_NOTES]:
     '当前页面没有识别到可读取的笔记。请确认你已打开小红书搜索结果页面，并等待内容加载完成后重试。',
+  [ErrorCode.NOT_SEARCH_RESULTS]:
+    '当前不是搜索结果页。批量读取只在搜索结果页生效——请先返回到小红书搜索结果页，再点「读取当前页面笔记」。（下方「识别卡片」显示的是页面残留的卡片数，本页不会读取。）',
   [ErrorCode.DOM_STRUCTURE_CHANGED]:
     '页面结构似乎发生了变化，暂时无法完整识别笔记。建议更新插件版本；当前数据已尽力保留。',
   [ErrorCode.EXTRACTION_PARTIAL]:

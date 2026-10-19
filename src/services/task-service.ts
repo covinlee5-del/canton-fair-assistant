@@ -34,6 +34,13 @@ export function validateTaskInput(input: TaskInput): Result<TaskInput> {
   if (!TASK_CATEGORIES.has(input.category)) {
     return fail({ code: ErrorCode.INVALID_INPUT, message: '任务类别不合法。' });
   }
+  if (input.relevanceConfig) {
+    const config = input.relevanceConfig;
+    const numeric = [config.titleWeight, config.snippetWeight, config.categoryBonus, config.timeInRangeBonus, config.timeOutOfRangePenalty, config.negativeKeywordPenalty, config.highThreshold, config.mediumThreshold];
+    if (numeric.some((value) => !Number.isFinite(value)) || config.highThreshold < 0 || config.highThreshold > 100 || config.mediumThreshold < 0 || config.mediumThreshold > config.highThreshold) {
+      return fail(appError(ErrorCode.INVALID_INPUT, '相关性权重和阈值无效。'));
+    }
+  }
   const language = input.language === 'en' || input.language === 'mixed' ? input.language : 'zh';
   return ok({
     name,

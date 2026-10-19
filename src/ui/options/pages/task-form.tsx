@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { api } from '../../api';
 import { Button } from '../../shared/components/Button';
 import { ErrorBanner } from '../../shared/components/ErrorBanner';
@@ -8,6 +8,8 @@ import { toAppError } from '../../../shared/utils/result';
 import type { AppError } from '../../../shared/types/base';
 import { TaskCategory } from '../../../shared/types/task';
 import type { Task, TaskInput, TaskLanguage } from '../../../shared/types/task';
+import type { PromotionalCopy } from '../../../shared/types/copy';
+import { DEFAULT_SETTINGS } from '../../../shared/types/settings';
 
 const LANGUAGE_OPTIONS: Array<{ value: TaskLanguage; label: string }> = [
   { value: 'zh', label: '中文' },
@@ -31,8 +33,14 @@ export function TaskForm({ existing, onSaved, onCancel }: TaskFormProps) {
   const [from, setFrom] = useState(existing?.dateRange.from?.slice(0, 10) ?? '');
   const [to, setTo] = useState(existing?.dateRange.to?.slice(0, 10) ?? '');
   const [notes, setNotes] = useState(existing?.notes ?? '');
+  const [copyIds, setCopyIds] = useState<string[]>(existing?.copyIds ?? []);
+  const [copies, setCopies] = useState<PromotionalCopy[]>([]);
+  const [relevanceConfig, setRelevanceConfig] = useState(existing?.relevanceConfig ?? DEFAULT_SETTINGS.defaultRelevanceConfig);
+  const [negativeKeywords, setNegativeKeywords] = useState((existing?.relevanceConfig.negativeKeywords ?? []).join('\n'));
   const [error, setError] = useState<AppError | null>(null);
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => { api.copiesList().then((result) => { if (result.ok) setCopies(result.value); }); }, []);
 
   function applyPreset(): void {
     const preset = presetKeywordsFor(category);
@@ -59,8 +67,8 @@ export function TaskForm({ existing, onSaved, onCancel }: TaskFormProps) {
         language,
         category,
         dateRange: { from: from === '' ? null : from, to: to === '' ? null : to },
-        relevanceConfig: existing?.relevanceConfig ?? null,
-        copyIds: existing?.copyIds ?? [],
+        relevanceConfig: { ...relevanceConfig, negativeKeywords: negativeKeywords.split('\n').map((word) => word.trim()).filter(Boolean) },
+        copyIds,
         notes,
       };
       const res = existing
@@ -96,6 +104,16 @@ export function TaskForm({ existing, onSaved, onCancel }: TaskFormProps) {
           placeholder="例如：广交会翻译机会"
           onChange={(e) => setName(e.target.value)}
         />
+      </div>
+
+      <div className="form-field">
+        <span className="label">关联文案</span>
+        {copies.length === 0 ? <p className="hint">还没有文案，请先到文案页创建。</p> : copies.map((copy) => (
+          <label key={copy.id} className="checkbox-row">
+            <input type="checkbox" checked={copyIds.includes(copy.id)} onChange={(e) => setCopyIds((current) => e.target.checked ? [...current, copy.id] : current.filter((id) => id !== copy.id))} />
+            {copy.name}{copy.isDefault ? '（默认）' : ''}
+          </label>
+        ))}
       </div>
 
       <div className="form-field">
@@ -181,9 +199,19 @@ export function TaskForm({ existing, onSaved, onCancel }: TaskFormProps) {
         />
       </div>
 
-      <p className="hint">
-        高级筛选规则（权重、阈值、负向关键词）将在阶段 4 开放编辑，当前使用默认规则。
-      </p>
+      <details className="form-field">
+        <summary>相关性评分规则</summary>
+        <p className="hint">标题和摘要关键词权重按 10 分单位计分；类别、时间奖励和负向词按分值计算。</p>
+        <div className="row">
+          {([
+            ['titleWeight', '标题权重'], ['snippetWeight', '摘要权重'], ['categoryBonus', '类别加分'],
+            ['timeInRangeBonus', '范围内加分'], ['timeOutOfRangePenalty', '范围外扣分'],
+            ['negativeKeywordPenalty', '负向词扣分'], ['highThreshold', '高相关阈值'], ['mediumThreshold', '中相关阈值'],
+          ] as const).map(([key, label]) => <label key={key} className="form-field"><span>{label}</span><input className="input" type="number" value={relevanceConfig[key]} min={key.endsWith('Threshold') ? 0 : undefined} max={key.endsWith('Threshold') ? 100 : undefined} onChange={(e) => setRelevanceConfig({ ...relevanceConfig, [key]: Number(e.target.value) })} /></label>)}
+        </div>
+        <label htmlFor="task-negative-keywords">负向关键词（每行一个）</label>
+        <textarea id="task-negative-keywords" className="textarea" rows={2} value={negativeKeywords} onChange={(e) => setNegativeKeywords(e.target.value)} />
+      </details>
 
       <div className="row">
         <Button variant="primary" onClick={() => void handleSubmit()} disabled={saving}>

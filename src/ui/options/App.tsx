@@ -3,8 +3,9 @@ import { NAV_ITEMS } from './nav';
 import type { NavKey } from './nav';
 import Dashboard from './pages/dashboard';
 import Tasks from './pages/tasks';
-import NotesPlaceholder from './pages/notes';
-import CopyPlaceholder from './pages/copy';
+import Notes from './pages/notes';
+import CopyPage from './pages/copy';
+import ActivityPage from './pages/activity';
 import StatsPlaceholder from './pages/stats';
 import SettingsPlaceholder from './pages/settings';
 import { extensionVersion } from '../../platform/side-panel';
@@ -33,8 +34,9 @@ export default function App() {
       <main className="page">
         {nav === 'dashboard' ? <Dashboard onNavigate={setNav} /> : null}
         {nav === 'tasks' ? <Tasks /> : null}
-        {nav === 'notes' ? <NotesPlaceholder /> : null}
-        {nav === 'copy' ? <CopyPlaceholder /> : null}
+        {nav === 'notes' ? <Notes /> : null}
+        {nav === 'copy' ? <CopyPage /> : null}
+        {nav === 'activity' ? <ActivityPage /> : null}
         {nav === 'stats' ? <StatsPlaceholder /> : null}
         {nav === 'settings' ? <SettingsPlaceholder /> : null}
       </main>

@@ -5,6 +5,14 @@ import type { TaskCategory } from './task';
 
 export type CopyLanguage = 'zh' | 'en' | 'bilingual';
 
+export interface CopyInput {
+  name: string;
+  content: string;
+  language: CopyLanguage;
+  scenario: TaskCategory | 'GENERAL';
+  tags: string[];
+}
+
 export interface PromotionalCopy {
   id: ID;
   name: string;

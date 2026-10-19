@@ -82,5 +82,19 @@ describe('xiaohongshu adapter（探针版）', () => {
     expect(diag.pageUrl).toBe('www.xiaohongshu.com/search_result');
     expect(diag.signals.noteSections).toBe(1);
     expect(diag.totalCandidates).toBe(1);
+    // 「识别卡片」取 totalCandidates，保证 提取+跳过 = 识别，不再出现 30/0/0
+    expect(diag.extracted + diag.skipped).toBe(diag.totalCandidates);
+  });
+
+  it('登录墙选择器命中时置 loginWallDetected=true（组级真实命中，见 verification-results §8 第 10 行）', () => {
+    const doc = buildDoc(`
+      <div id="app">
+        <section class="note-item"><a href="https://www.xiaohongshu.com/explore/${NOTE_ID}">n</a></section>
+        <div class="login-container"><div class="qrcode-login">扫码登录</div></div>
+      </div>
+    `);
+    const signals = collectSignals(doc);
+    expect(signals.loginWallDetected).toBe(true);
+    expect(signals.captchaDetected).toBe(false);
   });
 });

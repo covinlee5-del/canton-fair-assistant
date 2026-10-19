@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<!--
+  模拟「小红书搜索结果页」（tests/fixtures/search-page.html）
+  用途：验证 extractVisibleNotes 能稳定取出 title / canonicalUrl / noteId /
+        author / snippet / timeText（阶段 3 T3.2、T3.9）。
+
+  结构依据：docs/verification-results.md §6 第 4–6 步实测信号
+    - 卡片容器：section.note-item（真实页面命中 22→30，随滚动增量追加）
+    - 链接：a[href*="/explore/"]（真实页面去重计数 20/30/28/60）
+  卡片内字段路径未采集，按小红书公开页面结构模拟，需 T3.10 真实复验。
+
+  覆盖场景：
+    1. 完整卡片（标题/作者/时间齐全）
+    2. 同一笔记重复出现（带不同 xsec_token）→ 必须去重
+    3. 带摘要的卡片
+    4. 相对链接 → 需补全为绝对 URL
+    5. 懒加载占位卡片（无链接无标题）→ 计入 skipped
+-->
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <title>广交会 - 小红书搜索</title>
+  </head>
+  <body>
+    <div id="app">
+      <div class="search-layout">
+        <div class="feeds-container">
+          <!-- 1. 完整卡片 -->
+          <section class="note-item" data-index="0">
+            <div class="cover">
+              <a class="cover mask" href="/explore/65f1a2b3c4d5e6f708192a3b?xsec_token=ABC123">
+                <img src="https://sns-img.example/a.jpg" alt="" />
+              </a>
+            </div>
+            <div class="footer">
+              <a class="title" href="/explore/65f1a2b3c4d5e6f708192a3b?xsec_token=ABC123">
+                <span>广交会翻译兼职第一天，真实感受分享</span>
+              </a>
+              <div class="author-wrapper">
+                <a class="author" href="/user/profile/5f1a2b3c4d5e6f708192a3b1">
+                  <img class="avatar-item" alt="" />
+                  <span class="name">小鹿翻译日记</span>
+                </a>
+                <span class="time">3 天前</span>
+              </div>
+            </div>
+          </section>
+
+          <!-- 2. 同一笔记重复出现（不同 xsec_token）→ 必须去重 -->
+          <section class="note-item" data-index="1">
+            <div class="cover">
+              <a class="cover mask" href="/explore/65f1a2b3c4d5e6f708192a3b?xsec_token=DIFFERENT">
+                <img src="https://sns-img.example/a.jpg" alt="" />
+              </a>
+            </div>
+            <div class="footer">
+              <a class="title" href="/explore/65f1a2b3c4d5e6f708192a3b?xsec_token=DIFFERENT">
+                <span>广交会翻译兼职第一天，真实感受分享（重复卡片）</span>
+              </a>
+              <div class="author-wrapper">
+                <a class="author" href="/user/profile/5f1a2b3c4d5e6f708192a3b1">
+                  <span class="name">小鹿翻译日记</span>
+                </a>
+                <span class="time">3 天前</span>
+              </div>
+            </div>
+          </section>
+
+          <!-- 3. 带摘要 + 绝对链接 + 绝对时间 -->
+          <section class="note-item" data-index="2">
+            <div class="cover">
+              <a
+                class="cover mask"
+                href="https://www.xiaohongshu.com/explore/65f1a2b3c4d5e6f708192a3c"
+              >
+                <img src="https://sns-img.example/b.jpg" alt="" />
+              </a>
+            </div>
+            <div class="footer">
+              <a class="title" href="https://www.xiaohongshu.com/explore/65f1a2b3c4d5e6f708192a3c">
+                <span>Canton Fair 2026 需要英语陪同翻译吗</span>
+              </a>
+              <p class="desc">今年秋季广交会第三期，展位现场需要中英互译，欢迎私信沟通时间。</p>
+              <div class="author-wrapper">
+                <a class="author" href="/user/profile/5f1a2b3c4d5e6f708192a3b2">
+                  <span class="name">Buyer from Spain</span>
+                </a>
+                <span class="time">2026-03-05</span>
+              </div>
+            </div>
+          </section>
+
+          <!-- 4. 另一张完整卡片（刚刚发布） -->
+          <section class="note-item" data-index="3">
+            <div class="cover">
+              <a class="cover mask" href="/explore/65f1a2b3c4d5e6f708192a3d">
+                <img src="https://sns-img.example/c.jpg" alt="" />
+              </a>
+            </div>
+            <div class="footer">
+              <a class="title" href="/explore/65f1a2b3c4d5e6f708192a3d">
+                <span>广交会展馆附近哪里可以打印资料</span>
+              </a>
+              <div class="author-wrapper">
+                <a class="author" href="/user/profile/5f1a2b3c4d5e6f708192a3b3">
+                  <span class="name">展会小助手</span>
+                </a>
+                <span class="time">刚刚</span>
+              </div>
+            </div>
+          </section>
+
+          <!-- 5. 懒加载占位卡片：无链接、无标题 → 计入 skipped，绝不伪造 -->
+          <section class="note-item skeleton" data-index="4">
+            <div class="cover placeholder"></div>
+            <div class="footer placeholder"></div>
+          </section>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

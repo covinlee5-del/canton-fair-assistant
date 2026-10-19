@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<!--
+  模拟「笔记详情页」（tests/fixtures/note-detail.html）
+  用途：验证 pageType=note_detail 时提取器不把叠加层下的搜索卡片
+        误当成详情页的笔记（docs/verification-results.md §6.3 观察 A）。
+
+  真实观测：URL 变成 /explore/<id> 后，底下搜索结果 DOM 并未卸载。
+  因此本 fixture 保留一个搜索卡片容器 + 一个详情叠加层。
+-->
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <title>广交会翻译兼职第一天 - 小红书</title>
+  </head>
+  <body>
+    <div id="app">
+      <!-- 叠加层下仍然存在的搜索结果卡片 -->
+      <div class="feeds-container">
+        <section class="note-item">
+          <div class="cover">
+            <a class="cover mask" href="/explore/65f1a2b3c4d5e6f708192a3e">
+              <img src="https://sns-img.example/d.jpg" alt="" />
+            </a>
+          </div>
+          <div class="footer">
+            <a class="title" href="/explore/65f1a2b3c4d5e6f708192a3e">
+              <span>搜索结果里被点开的那条笔记</span>
+            </a>
+            <div class="author-wrapper">
+              <a class="author" href="/user/profile/5f1a2b3c4d5e6f708192a3b4">
+                <span class="name">被点开的作者</span>
+              </a>
+              <span class="time">昨天</span>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <!-- 详情叠加层 -->
+      <div class="note-detail-mask" id="noteContainer">
+        <div class="note-detail">
+          <h1 class="title">广交会翻译兼职第一天，真实感受分享</h1>
+          <div class="author-wrapper">
+            <span class="name">小鹿翻译日记</span>
+            <span class="time">编辑于 3 天前</span>
+          </div>
+          <div class="desc">这里是笔记正文，提取器不会读取正文内容（隐私约束）。</div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>
